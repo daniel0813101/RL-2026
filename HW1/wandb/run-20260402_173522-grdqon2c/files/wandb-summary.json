@@ -1,0 +1,1 @@
+{"_wandb":{"runtime":9},"_step":296,"Train/EpisodeReward":200,"Train/EpisodeLength":200,"Train/EWMAReward":195.1881899765417,"_timestamp":1.775122534142582e+09,"_runtime":9.383152333,"Train/Loss":8.616321410466226,"Train/LearningRate":0.01}

@@ -1,0 +1,51 @@
+_wandb:
+    value:
+        cli_version: 0.25.1
+        e:
+            n6l2tjzyfoof1u5bm4zr8xbyvr18e2c2:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 10
+                    memoryGb: 16
+                    name: Apple M2
+                    pcpuCores: 4
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "5368709120"
+                codePath: HW1/reinforce.py
+                codePathLocal: reinforce.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "374059778048"
+                email: 30432kshs@gmail.com
+                executable: /opt/homebrew/anaconda3/envs/deep-learning/bin/python
+                host: zhuangjunyaodeMacBook-Air.local
+                memory:
+                    total: "17179869184"
+                os: macOS-15.2-arm64-arm-64bit
+                program: /Users/daniel/Desktop/Study/Reinforcement Learning/HW1/reinforce.py
+                python: CPython 3.11.8
+                root: /Users/daniel/Desktop/Study/Reinforcement Learning/HW1
+                startedAt: "2026-04-02T09:35:22.449526Z"
+                writerId: n6l2tjzyfoof1u5bm4zr8xbyvr18e2c2
+        m: []
+        python_version: 3.11.8
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 2
+                - 16
+                - 61
+            "4": 3.11.8
+            "5": 0.25.1
+            "12": 0.25.1
+            "13": darwin-arm64
+env_name:
+    value: CartPole-v0
+learning_rate:
+    value: 0.01

@@ -1,0 +1,33 @@
+{
+  "os": "macOS-15.2-arm64-arm-64bit",
+  "python": "CPython 3.11.11",
+  "startedAt": "2026-04-02T09:28:23.756535Z",
+  "program": "/Users/daniel/Desktop/Study/Reinforcement Learning/HW1/reinforce.py",
+  "codePath": "HW1/reinforce.py",
+  "codePathLocal": "reinforce.py",
+  "email": "30432kshs@gmail.com",
+  "root": "/Users/daniel/Desktop/Study/Reinforcement Learning/HW1",
+  "host": "zhuangjunyaodeMacBook-Air.local",
+  "executable": "/opt/homebrew/anaconda3/envs/deep-learning/bin/python",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "373904637952"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M2",
+    "ecpuCores": 4,
+    "pcpuCores": 4,
+    "gpuCores": 10,
+    "memoryGb": 16,
+    "swapTotalBytes": "5368709120",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "aqqfsdngibap0dafmq8fz7osxitdnwjp"
+}

@@ -30,7 +30,7 @@ class GAE:
         Compute GAE advantages from trajectory rewards/value predictions.
         values should have length len(rewards) + 1 for bootstrap at t+1.
         """
-        advantages = torch.zeros(len(rewards), dtype=torch.double)
+        advantages = torch.zeros(len(rewards), dtype=torch.float32)
         gae = 0.0
 
         for t in reversed(range(len(rewards))):
@@ -55,10 +55,11 @@ class Policy(nn.Module):
         self.action_dim = env.action_space.n if self.discrete else env.action_space.shape[0]
 
         ########## YOUR CODE HERE (5~10 lines) ##########
-        self.hidden_size = 128
+        self.hidden_size = 256
         self.gamma = 0.99
         self.gae_lambda = gae_lambda
-        self.entropy_coef = 0.001
+        self.base_entropy_coef = 0.003
+        self.entropy_coef = self.base_entropy_coef
         self.value_coef = 0.5
 
         # Shared feature extractor + actor/value heads.
@@ -73,8 +74,6 @@ class Policy(nn.Module):
         nn.init.xavier_uniform_(self.value_head.weight)
         nn.init.zeros_(self.value_head.bias)
 
-        self.double()
-
         ########## END OF YOUR CODE ##########
 
         self.gae = GAE(gamma=self.gamma, lambda_=self.gae_lambda)
@@ -88,18 +87,18 @@ class Policy(nn.Module):
         ########## YOUR CODE HERE (3~5 lines) ##########
         # Build hidden representation, then output policy and state-value.
         x = F.relu(self.shared_layer(state))
-        action_prob = F.softmax(self.action_head(x), dim=-1)
+        action_logits = self.action_head(x)
         state_value = self.value_head(x)
 
         ########## END OF YOUR CODE ##########
-        return action_prob, state_value
+        return action_logits, state_value
 
     def select_action(self, state):
         ########## YOUR CODE HERE (3~5 lines) ##########
         # Convert state and sample an action from stochastic policy.
-        state = torch.from_numpy(state).double()
-        probs, state_value = self.forward(state)
-        dist = Categorical(probs)
+        state = torch.from_numpy(state).float()
+        action_logits, state_value = self.forward(state)
+        dist = Categorical(logits=action_logits)
         action = dist.sample()
 
         ########## END OF YOUR CODE ##########
@@ -108,7 +107,7 @@ class Policy(nn.Module):
         self.entropies.append(dist.entropy())
         return action.item()
 
-    def calculate_loss(self):
+    def calculate_loss(self, bootstrap_value=0.0):
         ########## YOUR CODE HERE (8-15 lines) ##########
         policy_losses = []
         value_losses = []
@@ -118,21 +117,21 @@ class Policy(nn.Module):
         values_detached = values.detach()
 
         # Add final bootstrap value. For terminal episode end, bootstrap is 0.
-        values_for_gae = torch.cat([values_detached, torch.zeros(1, dtype=torch.double)])
+        values_for_gae = torch.cat([values_detached, torch.tensor([bootstrap_value], dtype=torch.float32)])
 
         # Compute raw GAE first; use it for value targets before normalization.
         raw_advantages = self.gae(self.rewards, values_for_gae, self.dones)
         returns = raw_advantages + values_detached
-        advantages = (raw_advantages - raw_advantages.mean()) / (raw_advantages.std() + 1e-8)
+        advantages = (raw_advantages - raw_advantages.mean()) / (raw_advantages.std(unbiased=False) + 1e-8)
 
-        entropy_bonus = torch.stack(self.entropies).sum()
+        entropy_bonus = torch.stack(self.entropies).mean()
 
         for (log_prob, value), adv, ret in zip(self.saved_actions, advantages, returns):
             policy_losses.append(-log_prob * adv.detach())
             value_losses.append(F.smooth_l1_loss(value.squeeze(-1), ret.detach()))
 
-        policy_loss = torch.stack(policy_losses).sum()
-        value_loss = torch.stack(value_losses).sum()
+        policy_loss = torch.stack(policy_losses).mean()
+        value_loss = torch.stack(value_losses).mean()
         loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy_bonus
 
         ########## END OF YOUR CODE ##########
@@ -145,7 +144,7 @@ class Policy(nn.Module):
         del self.entropies[:]
 
 
-def train(lr=0.001, gae_lambda=0.95, max_episodes=5000):
+def train(lr=0.0007, gae_lambda=0.95, max_episodes=2000):
     model = Policy(gae_lambda=gae_lambda)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
@@ -174,6 +173,7 @@ def train(lr=0.001, gae_lambda=0.95, max_episodes=5000):
         state, _ = env.reset()
         ep_reward = 0
         t = 0
+        model.entropy_coef = model.base_entropy_coef * max(0.2, 1.0 - i_episode / max_episodes)
 
         ########## YOUR CODE HERE (10-15 lines) ##########
         # Roll out one complete episode and collect rewards + done flags.
@@ -183,17 +183,24 @@ def train(lr=0.001, gae_lambda=0.95, max_episodes=5000):
             done = np.logical_or(terminations, truncations)
 
             model.rewards.append(reward)
-            model.dones.append(done)
+            # Use true terminal flags in GAE masking; bootstrap on truncation.
+            model.dones.append(terminations)
             ep_reward += reward
 
             if done:
                 break
 
         # Single update at episode end using GAE advantages.
+        bootstrap_value = 0.0
+        if truncations and not terminations:
+            with torch.no_grad():
+                _, next_value = model.forward(torch.from_numpy(state).float())
+                bootstrap_value = next_value.item()
+
         optimizer.zero_grad()
-        loss = model.calculate_loss()
+        loss = model.calculate_loss(bootstrap_value=bootstrap_value)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         model.clear_memory()
 
@@ -211,6 +218,7 @@ def train(lr=0.001, gae_lambda=0.95, max_episodes=5000):
                 'Train/Loss': loss.item(),
                 'Train/LearningRate': optimizer.param_groups[0]['lr'],
                 'Train/GAELambda': gae_lambda,
+                'Train/EntropyCoef': model.entropy_coef,
             },
             step=i_episode,
         )
@@ -258,8 +266,8 @@ def test(name, env_name, gae_lambda=0.95, n_episodes=10):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='REINFORCE + GAE on LunarLander-v3')
     parser.add_argument('--gae-lambda', type=float, default=0.95, help='GAE lambda value (e.g. 0.90, 0.95, 0.99)')
-    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate')
-    parser.add_argument('--max-episodes', type=int, default=5000, help='Maximum training episodes')
+    parser.add_argument('--lr', type=float, default=0.0007, help='Learning rate')
+    parser.add_argument('--max-episodes', type=int, default=2000, help='Maximum training episodes')
     parser.add_argument('--test-episodes', type=int, default=10, help='Number of testing episodes')
     parser.add_argument('--seed', type=int, default=10, help='Random seed')
     parser.add_argument('--env-name', type=str, default='LunarLander-v3', help='Gymnasium environment name')
@@ -273,6 +281,8 @@ if __name__ == '__main__':
     env = gym.make(env_name)
     obs, _ = env.reset(seed=random_seed)
     torch.manual_seed(random_seed)
+    np.random.seed(random_seed)
+    env.action_space.seed(random_seed)
 
     train(lr=lr, gae_lambda=gae_lambda, max_episodes=args.max_episodes)
     test(

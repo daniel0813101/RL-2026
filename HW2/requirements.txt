@@ -1,0 +1,6 @@
+torch==2.8.0
+numpy==2.4.3
+gymnasium==1.2.3
+mujoco>=3.0          # required for HalfCheetah-v5 (problem 4b/4c)
+wandb==0.25.1
+tqdm==4.67.1

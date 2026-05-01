@@ -251,10 +251,10 @@ def train():
     noise_scale_final = 0.05  # anneal down to this by the last episode
     replay_size = 1000000     # buffer size
     batch_size = 256          # batch size
-    lr_a = 1e-4               # actor lr for stability
-    lr_c = 3e-4               # critic lr
+    lr_a = 3e-4               # actor lr — bumped 3x for faster policy improvement on Pendulum's short horizon
+    lr_c = 1e-3               # critic lr — DDPG-paper standard; faster Q convergence stabilizes the actor target
     updates_per_step = 1      # gradient steps per env step
-    warmup_steps = 10000      # collect experience before any gradient updates
+    warmup_steps = 1000       # 5 episodes of random play (was 10k = ~50 eps wasted out of a 300-ep budget)
     print_freq = 1
     save_freq = 50
     best_eval_reward = -float('inf')
@@ -493,7 +493,7 @@ def set_seed(env, seed):
 
 if __name__ == '__main__':
     # For reproducibility, fix the random seed
-    random_seed = 42
+    random_seed = 0
     env_name = 'Pendulum-v1'
     #env_name = 'HalfCheetah-v5'
     env = gym.make(env_name)
